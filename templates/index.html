@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Legitimacy Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.0/mammoth.browser.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Modern glass morphism effect */
+        .glass {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-dark {
+            backdrop-filter: blur(20px);
+            background: rgba(31, 41, 55, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Animated gradient backgrounds */
+        .gradient-bg {
+            background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Modern scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #764ba2, #667eea);
+            transform: scale(1.1);
+        }
+
+        /* Enhanced score circle with 3D effect */
+        .score-circle {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: conic-gradient(
+                var(--color) calc(var(--score) * 1%),
+                #e5e7eb calc(var(--score) * 1%)
+            );
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), 
+                        0 0 0 8px rgba(255, 255, 255, 0.8),
+                        0 0 0 12px rgba(0, 0, 0, 0.05);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+
+        .score-circle::before {
+            content: attr(data-score);
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .score-circle.legit { 
+            --color: linear-gradient(45deg, #10B981, #059669);
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3), 
+                        0 0 0 8px rgba(255, 255, 255, 0.9),
+                        0 0 0 12px rgba(16, 185, 129, 0.1);
+        }
+        
+        .score-circle.fake { 
+            --color: linear-gradient(45deg, #EF4444, #DC2626);
+            box-shadow: 0 20px 40px rgba(239, 68, 68, 0.3), 
+                        0 0 0 8px rgba(255, 255, 255, 0.9),
+                        0 0 0 12px rgba(239, 68, 68, 0.1);
+        }
+
+        /* Modern analysis items with hover effects */
+        .analysis-item {
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .analysis-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.5));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .analysis-item:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .analysis-item:hover::before {
+            opacity: 1;
+        }
+
+        .analysis-item.critical { 
+            border-color: #EF4444; 
+            background: linear-gradient(135deg, #FEF2F2, #FECACA);
+        }
+        .analysis-item.high { 
+            border-color: #F97316; 
+            background: linear-gradient(135deg, #FFF7ED, #FED7AA);
+        }
+        .analysis-item.medium { 
+            border-color: #F59E0B; 
+            background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+        }
+        .analysis-item.low { 
+            border-color: #3B82F6; 
+            background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+        }
+
+        /* Sidebar with modern design */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #1F2937, #374151);
+            color: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+            z-index: 50;
+        }
+
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+        }
+
+        .sidebar-tab {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            margin: 0 12px 8px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-tab::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .sidebar-tab:hover::before {
+            left: 100%;
+        }
+
+        /* Main content area with improved spacing */
+        .main-content {
+            margin-left: 280px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+
+        .main-content.expanded {
+            margin-left: 80px;
+        }
+
+        /* Enhanced modal with backdrop blur */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; backdrop-filter: blur(0px); }
+            to { opacity: 1; backdrop-filter: blur(8px); }
+        }
+
+        .modal-content {
+            position: relative;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            margin: 3% auto;
+            padding: 2rem;
+            width: 90%;
+            max-width: 1200px;
+            border-radius: 24px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+            animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes modalSlideIn {
+            from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        /* Enhanced drop zone with modern design */
+        #dropZone {
+            background: linear-gradient(135deg, #ffffff, #f1f5f9);
+            border: 2px dashed #cbd5e1;
+            border-radius: 20px;
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #dropZone::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(59, 130, 246, 0.05), transparent);
+            transform: rotate(45deg);
+            transition: all 0.5s ease;
+            opacity: 0;
+        }
+
+        #dropZone:hover::before {
+            opacity: 1;
+            animation: shimmer 2s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        #dropZone:hover,
+        #dropZone.dragover {
+            border-color: #3b82f6;
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            transform: scale(1.02);
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
+        }
+
+        /* Button enhancements */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Tab button styling */
+        .tab-button {
+            position: relative;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-button.active {
+            color: #667eea !important;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-button::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .tab-button:hover::after {
+            width: 100%;
+        }
+
+        /* Loading animation enhancement */
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Verdict section styling */
+        .verdict-section {
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .verdict-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 400% 400%;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        /* Glow effects */
+        .glow-legit {
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3), 
+                        0 0 20px rgba(16, 185, 129, 0.2),
+                        0 0 40px rgba(16, 185, 129, 0.1) !important;
+            border: 2px solid #10B981 !important;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glow-fake {
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3), 
+                        0 0 20px rgba(239, 68, 68, 0.2),
+                        0 0 40px rgba(239, 68, 68, 0.1) !important;
+            border: 2px solid #EF4444 !important;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Responsive design improvements */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                box-shadow: none;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .score-circle {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .score-circle::before {
+                width: 80px;
+                height: 80px;
+                font-size: 20px;
+            }
+        }
+
+        /* Section transitions */
+        .section {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .section:not(.hidden) {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* File info styling */
+        #fileInfo {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid #7dd3fc;
+        }
+
+        /* Preview container styling */
+        #previewContainer {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            background: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+    <!-- Sidebar -->
+    <div class="sidebar glass-dark" id="sidebar">
+        <div class="p-6 flex items-center justify-between border-b border-gray-600">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-shield-alt text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-white">Resume Detector</h1>
+                    <p class="text-xs text-gray-400">AI-Powered Analysis</p>
+                </div>
+            </div>
+            <button id="toggleSidebar" class="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-700">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="mt-6 px-3">
+            <a href="#" class="sidebar-tab flex items-center px-4 py-4 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-300" data-tab="uploadTab">
+                <div class="w-8 h-8 flex items-center justify-center">
+                    <i class="fas fa-cloud-upload-alt text-lg"></i>
+                </div>
+                <span class="sidebar-text ml-3 font-medium">Upload Resume</span>
+            </a>
+            <a href="#" class="sidebar-tab flex items-center px-4 py-4 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-300" data-tab="previewTab">
+                <div class="w-8 h-8 flex items-center justify-center">
+                    <i class="fas fa-eye text-lg"></i>
+                </div>
+                <span class="sidebar-text ml-3 font-medium">Document Preview</span>
+            </a>
+            <a href="#" class="sidebar-tab flex items-center px-4 py-4 text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-300" data-tab="analysisTab">
+                <div class="w-8 h-8 flex items-center justify-center">
+                    <i class="fas fa-chart-line text-lg"></i>
+                </div>
+                <span class="sidebar-text ml-3 font-medium">AI Analysis</span>
+            </a>
+        </nav>
+        
+        <!-- Footer in sidebar -->
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-600">
+            <div class="text-xs text-gray-400 text-center">
+                <p>Powered by Advanced AI</p>
+                <p class="text-gray-500">v2.0.1</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <!-- Enhanced Header -->
+        <header class="glass sticky top-0 z-40 border-b border-gray-200/50">
+            <div class="px-8 py-6 flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                        Resume Legitimacy Analysis
+                    </h2>
+                    <p class="text-gray-600 mt-1">Detect fraudulent resumes with AI-powered insights</p>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span>AI Engine Active</span>
+                    </div>
+                    <button class="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100">
+                        <i class="fas fa-bell text-lg"></i>
+                    </button>
+                    <button class="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100">
+                        <i class="fas fa-question-circle text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Container -->
+        <div class="main-sections p-8">
+            <!-- Upload Section -->
+            <div id="uploadTab" class="section">
+                <div class="max-w-4xl mx-auto">
+                    <div class="glass rounded-3xl p-8 shadow-xl">
+                        <div class="text-center mb-8">
+                            <h3 class="text-3xl font-bold text-gray-800 mb-2">Upload Resume for Analysis</h3>
+                            <p class="text-gray-600">Our AI will analyze the document for authenticity and potential red flags</p>
+                        </div>
+                        
+                        <div id="dropZone" class="mb-6">
+                            <div class="relative z-10">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                                        <i class="fas fa-cloud-upload-alt text-3xl text-white"></i>
+                                    </div>
+                                    <h4 class="text-xl font-semibold text-gray-800 mb-2">Drop your resume here</h4>
+                                    <p class="text-gray-600 mb-4">Supports PDF, DOC, and DOCX files up to 10MB</p>
+                                    <div class="flex items-center space-x-4">
+                                        <input type="file" id="fileInput" class="hidden" accept=".pdf,.doc,.docx">
+                                        <button class="btn-primary px-8 py-3 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-300">
+                                            <i class="fas fa-folder-open mr-2"></i>
+                                            Browse Files
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="fileInfo" class="hidden">
+                            <div class="flex items-center justify-between p-4">
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-file-alt text-white text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <span id="fileName" class="text-gray-800 font-medium block"></span>
+                                        <span class="text-sm text-gray-500">Ready for analysis</span>
+                                    </div>
+                                </div>
+                                <button onclick="removeFile()" class="text-red-500 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Features showcase -->
+                        <div class="grid md:grid-cols-3 gap-6 mt-12">
+                            <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50">
+                                <div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-shield-check text-white"></i>
+                                </div>
+                                <h4 class="font-semibold text-gray-800 mb-2">AI Detection</h4>
+                                <p class="text-sm text-gray-600">Advanced algorithms detect inconsistencies and fabricated information</p>
+                            </div>
+                            <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50">
+                                <div class="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-search text-white"></i>
+                                </div>
+                                <h4 class="font-semibold text-gray-800 mb-2">Deep Analysis</h4>
+                                <p class="text-sm text-gray-600">Comprehensive review of dates, experiences, and qualifications</p>
+                            </div>
+                            <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-violet-50">
+                                <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-chart-bar text-white"></i>
+                                </div>
+                                <h4 class="font-semibold text-gray-800 mb-2">Detailed Report</h4>
+                                <p class="text-sm text-gray-600">Get actionable insights and confidence scores for hiring decisions</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Section -->
+            <div id="previewTab" class="section hidden">
+                <div class="max-w-6xl mx-auto">
+                    <div class="glass rounded-3xl p-8 shadow-xl">
+                        <div class="flex items-center justify-between mb-8">
+                            <div>
+                                <h3 class="text-2xl font-bold text-gray-800">Document Preview</h3>
+                                <p class="text-gray-600 mt-1">Review the uploaded resume before analysis</p>
+                            </div>
+                            <div class="flex space-x-3">
+                                <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+                                    <i class="fas fa-download mr-2"></i>Download
+                                </button>
+                                <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+                                    <i class="fas fa-expand mr-2"></i>Fullscreen
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="previewContainer" class="min-h-[600px] bg-white">
+                            <div id="noPreview" class="flex flex-col items-center justify-center h-96 text-gray-500">
+                                <div class="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center mb-6">
+                                    <i class="fas fa-file-alt text-4xl text-gray-400"></i>
+                                </div>
+                                <h4 class="text-xl font-medium mb-2">No Document Uploaded</h4>
+                                <p>Upload a resume to see the preview here</p>
+                            </div>
+                            <div id="pdfPreview" class="hidden p-4"></div>
+                            <div id="textPreview" class="hidden p-6"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Section -->
+            <div id="analysisTab" class="section flex-1 p-6 hidden">
+                <div class="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
+                    <div id="analysisSection" class="hidden mb-6">
+                        <button id="analyzeBtn" class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2">
+                            <i class="fas fa-search"></i>
+                            <span>Analyze Resume</span>
+                        </button>
+                    </div>
+                    <div id="loadingState" class="hidden">
+                        <div class="flex items-center justify-center space-x-2 text-gray-600">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                            <span>Analyzing resume...</span>
+                        </div>
+                    </div>
+                    <div id="results" class="hidden space-y-8">
+                        <!-- Modern Summary Card -->
+                        <div id="modernSummary" class="rounded-xl shadow-lg p-6 flex items-center gap-6 mb-4 border-2" style="display:none;">
+                            <div id="modernVerdictIcon" class="text-5xl"></div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-4 mb-2">
+                                    <span id="modernVerdictText" class="text-2xl font-bold"></span>
+                                    <span id="modernConfidence" class="text-lg font-semibold"></span>
+                                </div>
+                                <div id="modernAssessment" class="text-gray-700 text-base"></div>
+                            </div>
+                        </div>
+                        <!-- Analysis Grids -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="fas fa-list-alt text-blue-500"></i>
+                                    <h4 class="text-lg font-bold text-blue-800">Key Findings</h4>
+                                    <span id="badgeKeyFindings" class="ml-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full"></span>
+                                </div>
+                                <div id="panelKeyFindingsBody" class="grid gap-4"></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+                                    <h4 class="text-lg font-bold text-yellow-800">Suspicious Elements</h4>
+                                    <span id="badgeSuspicious" class="ml-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full"></span>
+                                </div>
+                                <div id="panelSuspiciousBody" class="grid gap-4"></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="fas fa-info-circle text-gray-500"></i>
+                                    <h4 class="text-lg font-bold text-gray-800">Missing Info</h4>
+                                    <span id="badgeMissing" class="ml-2 bg-gray-500 text-white text-xs px-2 py-1 rounded-full"></span>
+                                </div>
+                                <div id="panelMissingBody" class="grid gap-4"></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="fas fa-lightbulb text-green-500"></i>
+                                    <h4 class="text-lg font-bold text-green-800">Recommendations</h4>
+                                    <span id="badgeImprovements" class="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full"></span>
+                                </div>
+                                <div id="panelImprovementsBody" class="grid gap-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function togglePanel(panelId) {
+        const body = document.getElementById(panelId);
+        if (body.classList.contains('hidden')) {
+            body.classList.remove('hidden');
+        } else {
+            body.classList.add('hidden');
+        }
+    }
+    </script>
+
+    <!-- Modal for content preview -->
+    <div id="contentModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle" class="text-2xl font-bold mb-4"></h2>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
