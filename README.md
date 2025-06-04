@@ -48,7 +48,7 @@ GOOGLE_API_KEY=your_google_gemini_api_key
 Start the FastAPI server with Uvicorn:
 
 ```sh
-uvicorn app:app --reload
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 - The app will be available at [http://localhost:8000](http://localhost:8000)
